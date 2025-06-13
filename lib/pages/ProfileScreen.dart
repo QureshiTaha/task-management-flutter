@@ -21,6 +21,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _addressLine1Controller = TextEditingController();
+  final TextEditingController _officeLocationController =
+      TextEditingController();
   final TextEditingController _userPhoneController = TextEditingController();
   final TextEditingController _postcodeController = TextEditingController();
   var client = http.Client();
@@ -36,11 +38,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final Map<String, dynamic> user = jsonDecode(
       jsonEncode(localStorage.getObject('userData') ?? {}),
     );
+    print("user: $user");
     final userEmail = user['userEmail'];
     if (userEmail == null) {
       setState(() {
         isLoading = false;
-        errorMessage = 'User email not found';
+        errorMessage =
+            'Something Went Wrong! Please try to Logout and login again';
       });
       return;
     }
@@ -58,6 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _firstNameController.text = userData?["userFirstName"] ?? '';
           _surnameController.text = userData?["userSurname"] ?? '';
           _addressLine1Controller.text = userData?["userAddressLine1"] ?? '';
+          _officeLocationController.text = userData?["userAddressLine2"] ?? '';
           _postcodeController.text = userData?["userAddressPostcode"] ?? '';
           _userPhoneController.text = userData?["userPhone"].toString() ?? '';
         });
@@ -72,6 +77,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
         isLoading = false;
         errorMessage = 'An error occurred: $e';
       });
+    }
+  }
+
+  Future<void> changePasswordPopup() async {
+    // Show Popup for writing message
+    final passwordController = TextEditingController();
+
+    final message = await showDialog<String>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Create New Password'),
+            content: TextField(
+              controller: passwordController,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Password'),
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                    () => Navigator.of(
+                      context,
+                    ).pop(null), // Cancel and return null
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  // Pop and pass the text entered in the TextField
+                  Navigator.of(context).pop(passwordController.text);
+                },
+                child: const Text('Send'),
+              ),
+            ],
+          ),
+    );
+
+    // Use the returned message if needed
+    if (message != null) {
+      final accessToken = localStorage.getString('accessToken');
+      final response = await client.post(
+        Uri.https(baseURL, '/api/v1/users/change-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+        body: jsonEncode({
+          'userPassword': passwordController.text,
+          'userID': userData?["userID"],
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Password updated successfully, Please wait while refreshing...',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => SplashScreen()),
+          (Route route) => false,
+        );
+      } else {
+        // show Bottom error
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update message 🤔')),
+        );
+      }
     }
   }
 
@@ -93,7 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       "userFirstName": _firstNameController.text,
       "userSurname": _surnameController.text,
       "userAddressLine1": _addressLine1Controller.text,
-      "userAddressLine2": userData?["userAddressLine2"],
+      "userAddressLine2": _officeLocationController.text,
       "userAddressPostcode": _postcodeController.text,
       "userPhone": _userPhoneController.text,
       "userGender": userData?["userGender"],
@@ -114,6 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           localData["userFirstName"] = newData["userFirstName"];
           localData["userSurname"] = newData["userSurname"];
           localData["userAddressLine1"] = newData["userAddressLine1"];
+          localData["userAddressLine2"] = newData["userAddressLine2"];
           localData["userAddressPostcode"] = newData["userAddressPostcode"];
           localData["userPhone"] = newData["userPhone"];
 
@@ -196,6 +272,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: InputDecoration(labelText: 'Contact Phone*'),
                     ),
                     TextField(
+                      controller: _officeLocationController,
+                      decoration: InputDecoration(labelText: 'Office Location'),
+                    ),
+                    TextField(
                       controller: _addressLine1Controller,
                       decoration: InputDecoration(labelText: 'Address'),
                     ),
@@ -204,9 +284,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: InputDecoration(labelText: 'Postcode'),
                     ),
                     SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: updateUser,
-                      child: Text('Update Profile'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: updateUser,
+                          child: Text('Update Profile'),
+                        ),
+                        ElevatedButton(
+                          onPressed: changePasswordPopup,
+                          child: Text('Change Password'),
+                        ),
+                      ],
                     ),
                   ],
                 ),

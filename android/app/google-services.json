@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "755518030390",
+    "project_id": "taskmanagement-iceweb",
+    "storage_bucket": "taskmanagement-iceweb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:755518030390:android:29864fda976e0cc4998e97",
+        "android_client_info": {
+          "package_name": "com.iceweb.task_management"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDjxeempwV3fTXeUrrqrJgR92It9eqZhaw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

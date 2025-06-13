@@ -36,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     fetchMessageLogs();
     // Initialize notification handling and interaction listeners
-    // _handleForegroundNotification();
     _handleInteractionWithNotification();
     _updateFCMTokenINDatabase();
 
@@ -123,8 +122,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    var isAdmin =
-        user['userRole'] != null && user['userRole'] >= 2 ? true : false;
+    // var isAdmin =
+    //     user['userRole'] != null && user['userRole'] >= 2 ? true : false;
 
     return WillPopScope(
       onWillPop: () async {
@@ -158,219 +157,223 @@ class _HomeScreenState extends State<HomeScreen> {
               isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : messageLogs.isNotEmpty
-                  ? Column(
-                    children: [
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: messageLogs.length,
-                          separatorBuilder:
-                              (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final log = messageLogs[index];
-                            String message = log['message'] ?? 'No-msg';
-                            String logType = log['log_type'] ?? '';
-                            String taskID = log['taskID'] ?? '';
-                            String userName = log['userName'] ?? '';
-                            print(logType);
-
-                            final logTimestampDate = DateFormat(
-                              'dd-MM-yyyy',
-                            ).format(
-                              DateTime.parse(log['timestamp']).toLocal(),
-                            );
-                            final logTimestampTime = DateFormat(
-                              'hh:mm a',
-                            ).format(
-                              DateTime.parse(log['timestamp']).toLocal(),
-                            );
-                            return GestureDetector(
-                              onTap:
-                                  () => {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder:
-                                            (_) => TaskDetailScreen(
-                                              taskID: taskID,
-                                            ),
+                  ? SafeArea(
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: messageLogs.length,
+                            separatorBuilder:
+                                (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final log = messageLogs[index];
+                              String message = log['message'] ?? 'No-msg';
+                              String logType = log['log_type'] ?? '';
+                              String taskID = log['taskID'] ?? '';
+                              String userName = log['userName'] ?? '';
+                              final logTimestampDate = DateFormat(
+                                'dd-MM-yyyy',
+                              ).format(
+                                DateTime.parse(log['timestamp']).toLocal(),
+                              );
+                              final logTimestampTime = DateFormat(
+                                'hh:mm a',
+                              ).format(
+                                DateTime.parse(log['timestamp']).toLocal(),
+                              );
+                              return GestureDetector(
+                                onTap:
+                                    () => {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder:
+                                              (_) => TaskDetailScreen(
+                                                taskID: taskID,
+                                              ),
+                                        ),
                                       ),
-                                    ),
-                                  },
-                              child: Card(
-                                elevation: 1,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                shadowColor:
-                                    logType == 'system'
-                                        ? Colors.amber
-                                        : Colors.lightGreen,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          CircleAvatar(
-                                            backgroundColor:
-                                                logType == 'system'
-                                                    ? Colors.amber
-                                                    : Colors.lightGreen,
-                                            child:
-                                                logType == 'system'
-                                                    ? Icon(
-                                                      Icons.person_4,
-                                                      color:
-                                                          ThemeData()
-                                                              .colorScheme
-                                                              .onPrimary,
-                                                    )
-                                                    : Text(
-                                                      userName
-                                                          .split(' ')
-                                                          .map(
-                                                            (name) =>
-                                                                name.length > 0
-                                                                    ? name[0]
-                                                                    : '',
-                                                          )
-                                                          .join(),
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.bold,
+                                    },
+                                child: Card(
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  shadowColor:
+                                      logType == 'system'
+                                          ? Colors.amber
+                                          : Colors.lightGreen,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            CircleAvatar(
+                                              backgroundColor:
+                                                  logType == 'system'
+                                                      ? Colors.amber
+                                                      : Colors.lightGreen,
+                                              child:
+                                                  logType == 'system'
+                                                      ? Icon(
+                                                        Icons.person_4,
+                                                        color:
+                                                            ThemeData()
+                                                                .colorScheme
+                                                                .onPrimary,
+                                                      )
+                                                      : Text(
+                                                        userName
+                                                            .split(' ')
+                                                            .map(
+                                                              (name) =>
+                                                                  name.length >
+                                                                          0
+                                                                      ? name[0]
+                                                                      : '',
+                                                            )
+                                                            .join(),
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
                                                       ),
-                                                    ),
-                                          ),
+                                            ),
 
-                                          const SizedBox(width: 10),
-                                          // Assigned By Info
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                            const SizedBox(width: 10),
+                                            // Assigned By Info
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    userName,
+                                                    style: theme
+                                                        .textTheme
+                                                        .titleMedium
+                                                        ?.copyWith(
+                                                          color:
+                                                              theme
+                                                                  .colorScheme
+                                                                  .onBackground,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                  ),
+                                                  Text(
+                                                    message,
+                                                    style: theme
+                                                        .textTheme
+                                                        .bodyMedium
+                                                        ?.copyWith(
+                                                          color:
+                                                              theme
+                                                                  .colorScheme
+                                                                  .onBackground,
+                                                        ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+
+                                            const SizedBox(width: 10),
+                                            Column(
                                               children: [
                                                 Text(
-                                                  userName,
+                                                  logTimestampDate,
                                                   style: theme
                                                       .textTheme
-                                                      .titleMedium
+                                                      .bodySmall
                                                       ?.copyWith(
-                                                        color:
-                                                            theme
-                                                                .colorScheme
-                                                                .onBackground,
-                                                        fontWeight:
-                                                            FontWeight.bold,
+                                                        color: Colors.grey,
                                                       ),
                                                 ),
                                                 Text(
-                                                  message,
+                                                  logTimestampTime,
                                                   style: theme
                                                       .textTheme
-                                                      .bodyMedium
+                                                      .bodySmall
                                                       ?.copyWith(
-                                                        color:
-                                                            theme
-                                                                .colorScheme
-                                                                .onBackground,
+                                                        color: Colors.grey,
                                                       ),
                                                 ),
                                               ],
                                             ),
-                                          ),
-
-                                          const SizedBox(width: 10),
-                                          Column(
-                                            children: [
-                                              Text(
-                                                logTimestampDate,
-                                                style: theme.textTheme.bodySmall
-                                                    ?.copyWith(
-                                                      color: Colors.grey,
-                                                    ),
-                                              ),
-                                              Text(
-                                                logTimestampTime,
-                                                style: theme.textTheme.bodySmall
-                                                    ?.copyWith(
-                                                      color: Colors.grey,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      // Pagination
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  page > 1
-                                      ? theme.colorScheme.surfaceVariant
-                                      : Colors.grey,
-                              foregroundColor:
-                                  page > 1 ? Colors.black : Colors.white,
-                            ),
-                            // disable previous button if page 1
-                            child: const Text("< Newer"),
-                            onPressed: () {
-                              if (page > 1) {
-                                setState(() {
-                                  page--;
+                        const SizedBox(height: 10),
+                        // Pagination
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    page > 1
+                                        ? theme.colorScheme.surfaceVariant
+                                        : Colors.grey,
+                                foregroundColor:
+                                    page > 1 ? Colors.black : Colors.white,
+                              ),
+                              // disable previous button if page 1
+                              child: const Text("< Newer"),
+                              onPressed: () {
+                                if (page > 1) {
+                                  setState(() {
+                                    page--;
+                                    fetchMessageLogs();
+                                  });
+                                } else {
+                                  // pull down to refresh
                                   fetchMessageLogs();
-                                });
-                              } else {
-                                // pull down to refresh
-                                fetchMessageLogs();
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 10),
-                          Text("Page $page"),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  page == maxPages
-                                      ? Colors.grey
-                                      : theme.colorScheme.surfaceVariant,
-                              foregroundColor:
-                                  page == maxPages
-                                      ? Colors.white
-                                      : Colors.black,
+                                }
+                              },
                             ),
-                            child: const Text("older >"),
-                            onPressed: () {
-                              if (page < maxPages) {
-                                setState(() {
-                                  page++;
-                                  fetchMessageLogs();
-                                });
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
+                            const SizedBox(width: 10),
+                            Text("Page $page"),
+                            const SizedBox(width: 10),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    page == maxPages
+                                        ? Colors.grey
+                                        : theme.colorScheme.surfaceVariant,
+                                foregroundColor:
+                                    page == maxPages
+                                        ? Colors.white
+                                        : Colors.black,
+                              ),
+                              child: const Text("older >"),
+                              onPressed: () {
+                                if (page < maxPages) {
+                                  setState(() {
+                                    page++;
+                                    fetchMessageLogs();
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   )
                   : Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: const [
-                        CircularProgressIndicator(),
                         SizedBox(width: 10, height: 20),
                         Text(
                           "Hello User 😇",

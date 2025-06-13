@@ -38,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     var client = http.Client();
     try {
+      print('Login API URL: ${Uri.https(baseURL, '/api/v1/users/login')}');
       final response = await client.post(
         Uri.https(baseURL, '/api/v1/users/login'),
         headers: {'Content-Type': 'application/json; charset=UTF-8'},

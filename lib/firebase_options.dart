@@ -50,19 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: '',
-    appId: '',
-    messagingSenderId: '',
-    projectId: '',
-    storageBucket: '',
+    apiKey: 'AIzaSyDjxeempwV3fTXeUrrqrJgR92It9eqZhaw',
+    appId: '1:755518030390:android:29864fda976e0cc4998e97',
+    messagingSenderId: '755518030390',
+    projectId: 'taskmanagement-iceweb',
+    storageBucket: 'taskmanagement-iceweb.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: '',
-    appId: '',
-    messagingSenderId: '',
-    projectId: '',
-    storageBucket: '',
-    iosBundleId: '',
+    apiKey: 'AIzaSyA_JmDixigkGmztA1USGZq14tNHy0UmXTo',
+    appId: '1:755518030390:ios:055e3454387ec8ee998e97',
+    messagingSenderId: '755518030390',
+    projectId: 'taskmanagement-iceweb',
+    storageBucket: 'taskmanagement-iceweb.firebasestorage.app',
+    iosBundleId: 'com.iceweb.taskManagement',
   );
 }

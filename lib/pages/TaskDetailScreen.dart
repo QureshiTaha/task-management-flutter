@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:task_management/resources/local_storage.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final String taskID;
@@ -53,6 +54,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   int currentPage = 1;
   bool isFetchingMore = false;
+  bool isDeleted = false;
   bool hasMoreLogs = true;
   int totalCount = 0;
 
@@ -425,11 +427,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Future<void> updateTaskStatus($status) async {
-    debugPrint((taskData?['created_by'] == currentUser['userID']).toString());
-    debugPrint(currentUser['userID'].toString());
-    debugPrint(taskData?['created_by'].toString());
-    debugPrint($status.toString());
-    debugPrint(($status == 'completed').toString());
     if (taskData?['created_by'] != currentUser['userID'] &&
         $status == 'completed') {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -461,6 +458,69 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  String? _formatTime(String? isoDateStr) {
+    if (isoDateStr == null) return null;
+
+    DateTime now = DateTime.now();
+    DateTime reminderTime;
+
+    try {
+      reminderTime =
+          DateTime.parse(isoDateStr).toLocal(); // Convert to local time
+    } catch (_) {
+      return null;
+    }
+
+    Duration diff = reminderTime.difference(now);
+
+    if (diff.isNegative) return null; // Time has passed
+
+    if (diff.inMinutes <= 2) return "Reminder in a few";
+    if (diff.inMinutes < 60) return "Reminder in ${diff.inMinutes} minutes";
+    if (diff.inHours < 24)
+      return "Reminder in ${diff.inHours} hour${diff.inHours > 1 ? 's' : ''}";
+    if (diff.inDays < 7)
+      return "Reminder in ${diff.inDays} day${diff.inDays > 1 ? 's' : ''}";
+
+    return "Reminder at ${_formatReadableDate(reminderTime)}";
+  }
+
+  String _formatReadableDate(DateTime date) {
+    return "${_ordinalDay(date.day)} ${_monthName(date.month)} ${date.year}";
+  }
+
+  String _monthName(int month) {
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    return months[month - 1];
+  }
+
+  String _ordinalDay(int day) {
+    if (day >= 11 && day <= 13) return "${day}th";
+    switch (day % 10) {
+      case 1:
+        return "${day}st";
+      case 2:
+        return "${day}nd";
+      case 3:
+        return "${day}rd";
+      default:
+        return "${day}th";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -480,6 +540,49 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      taskData?['isDeleted'] == '1'
+                          ? Container(
+                            margin: const EdgeInsets.only(bottom: 10.0),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  spreadRadius: 2,
+                                  blurRadius: 6,
+                                  offset: Offset(
+                                    0,
+                                    3,
+                                  ), // changes position of shadow
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    0,
+                                    10,
+                                    0,
+                                    10,
+                                  ),
+                                  child: Text(
+                                    'Task Deleted',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge?.copyWith(
+                                      color: Colors.yellow,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                          : SizedBox.shrink(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -489,10 +592,68 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                             style: theme.textTheme.titleLarge,
                           ),
 
-                          Text(
-                            "Priority: ${taskData?['priority'] ?? 'No Priority'}",
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                          // Text(
+                          //   "Reminder Date: ${taskData?['reminder_date'] ?? 'No Reminder Date'}",
+                          //   style: theme.textTheme.bodyMedium?.copyWith(
+                          //     fontWeight: FontWeight.bold,
+                          //   ),
+                          // ),
+                          GestureDetector(
+                            onTap: () async {
+                              await DatePicker.showDateTimePicker(
+                                context,
+                                showTitleActions: true,
+                                minTime: DateTime.now(),
+                                maxTime: DateTime(2100, 12, 31),
+                                onConfirm: (date) async {
+                                  final reminderTimestamp =
+                                      date.toIso8601String(); // or use millisecondsSinceEpoch if needed
+
+                                  final accessToken = await localStorage
+                                      .getString('accessToken');
+                                  final response = await http.put(
+                                    Uri.https(
+                                      baseURL,
+                                      '/api/v1/tasks/${widget.taskID}',
+                                    ),
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': 'Bearer $accessToken',
+                                    },
+                                    body: jsonEncode({
+                                      "reminder_date": reminderTimestamp,
+                                      "userID": currentUser['userID'],
+                                    }),
+                                  );
+
+                                  if (response.statusCode == 200) {
+                                    setState(() {
+                                      taskData?['reminder_date'] =
+                                          reminderTimestamp;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text("Reminder date updated!"),
+                                      ),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          "Failed to update reminder.",
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              );
+                            },
+                            child: Text(
+                              "${_formatTime(taskData?['reminder_date']) ?? 'No Reminder'}",
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.primaries.first,
+                              ),
                             ),
                           ),
                         ],
@@ -571,11 +732,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   ),
                                 ),
                                 builder:
-                                    (context) => TaskDetailPopup(
-                                      taskData: taskData,
-                                      currentUser: currentUser,
-                                      getStatusColor: _getStatusColor,
-                                      getStatusIcon: _getStatusIcon,
+                                    (context) => Container(
+                                      width:
+                                          double
+                                              .infinity, // ⬅️ Force full width
+                                      child: TaskDetailPopup(
+                                        taskData: taskData,
+                                        currentUser: currentUser,
+                                        getStatusColor: _getStatusColor,
+                                        getStatusIcon: _getStatusIcon,
+                                      ),
                                     ),
                               );
                             },
@@ -882,7 +1048,6 @@ class TaskDetailPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // debugPrint(taskData?['created_by'].toString());
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -1104,7 +1269,7 @@ class AssignmentLogPopup extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              "At $assignedAt",
+                              "At $assignedAt" ?? '',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: Colors.grey,
                               ),

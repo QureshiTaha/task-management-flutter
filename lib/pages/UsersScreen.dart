@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:ffi';
@@ -41,6 +42,7 @@ class _UsersScreenState extends State<UsersScreen> {
   List<dynamic> users = [];
   bool isLoading = true;
   String errorMessage = '';
+  Timer? _debounce;
   TextEditingController searchController = TextEditingController();
   var client = http.Client();
   static String baseURL = dotenv.get('HOST');
@@ -59,6 +61,22 @@ class _UsersScreenState extends State<UsersScreen> {
     isAdmin = currentUser['userRole'] != null && currentUser['userRole'] >= 2;
 
     fetchUsers();
+
+    searchController.addListener(() {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+      _debounce = Timer(const Duration(milliseconds: 500), () {
+        final query = searchController.text.trim();
+        fetchUsers(search: query); // your API call or search function
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    searchController.dispose();
+    super.dispose();
   }
 
   Future<void> fetchUsers({String search = ''}) async {
@@ -69,7 +87,6 @@ class _UsersScreenState extends State<UsersScreen> {
 
     try {
       final accessToken = await localStorage.getString('accessToken');
-      print("AccessToken $accessToken");
       final response = await client.get(
         Uri.https(baseURL, '/api/v1/users/allUsers', {'search': search}),
         headers: {
@@ -209,6 +226,8 @@ class _UsersScreenState extends State<UsersScreen> {
     final TextEditingController emailController = TextEditingController();
     // final TextEditingController passwordController = TextEditingController();
     final TextEditingController addressController = TextEditingController();
+    final TextEditingController officeLocationController =
+        TextEditingController();
     final TextEditingController userRoleController = TextEditingController();
     UserTypeLabel? userRole;
 
@@ -237,6 +256,10 @@ class _UsersScreenState extends State<UsersScreen> {
                   //   decoration: InputDecoration(labelText: 'Password'),
                   //   obscureText: true,
                   // ),
+                  TextField(
+                    controller: officeLocationController,
+                    decoration: InputDecoration(labelText: 'Office Location'),
+                  ),
                   TextField(
                     controller: addressController,
                     decoration: InputDecoration(labelText: 'Address'),
@@ -274,6 +297,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     'userEmail': emailController.text,
                     // 'userPassword': passwordController.text,
                     'userAddressLine1': addressController.text,
+                    'userAddressLine2': addressController.text,
                     'userRole': userRole?.type ?? 1,
                     "sendMail": true,
                   });
@@ -299,6 +323,8 @@ class _UsersScreenState extends State<UsersScreen> {
     final TextEditingController addressController = TextEditingController(
       text: user["userAddressLine1"],
     );
+    final TextEditingController officeLocationController =
+        TextEditingController(text: user["userAddressLine2"]);
     UserTypeLabel? userRole = UserTypeLabel.values.firstWhere(
       (e) => e.type == user["userRole"],
       orElse: () => UserTypeLabel.normalUser, // fallback just in case
@@ -325,6 +351,10 @@ class _UsersScreenState extends State<UsersScreen> {
                 TextField(
                   controller: userEmailController,
                   decoration: InputDecoration(labelText: 'Email'),
+                ),
+                TextField(
+                  controller: officeLocationController,
+                  decoration: InputDecoration(labelText: 'Office Location'),
                 ),
                 TextField(
                   controller: addressController,
@@ -364,6 +394,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     'userFirstName': firstNameController.text,
                     'userSurname': surnameController.text,
                     'userAddressLine1': addressController.text,
+                    'userAddressLine2': officeLocationController.text,
                     'userRole': userRole?.type ?? user["userRole"],
                   });
                   Navigator.of(context).pop();
@@ -386,7 +417,7 @@ class _UsersScreenState extends State<UsersScreen> {
             child: TextField(
               controller: searchController,
               decoration: InputDecoration(
-                enabledBorder: OutlineInputBorder(
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10.0),
                 ),
                 labelText: 'Search',
@@ -408,16 +439,50 @@ class _UsersScreenState extends State<UsersScreen> {
                   itemBuilder: (context, index) {
                     final user = users[index];
                     return ListTile(
+                      // leading: CircleAvatar(
+                      //   backgroundColor:
+                      // user["userRole"] > 1
+                      //     ? Colors.yellow[600]
+                      //     : Colors.blue, // You can customize the color~
+                      //   child: Icon(
+                      //     Icons.person, // Profile icon
+                      //     color: Colors.white,
+                      //   ),
+                      // ),
                       leading: CircleAvatar(
                         backgroundColor:
-                            Colors.blue, // You can customize the color
-                        child: Icon(
-                          Icons.person, // Profile icon
-                          color: Colors.white,
+                            user["userRole"] > 1
+                                ? Colors.yellow[600]
+                                : ThemeData().colorScheme.primary,
+                        radius: 23.0,
+                        child: CircleAvatar(
+                          backgroundColor: ThemeData().colorScheme.secondary,
+                          radius: 21.0,
+                          child: Text(
+                            user['userFirstName'] != null
+                                ? user['userFirstName'][0] +
+                                    user['userSurname'][0]
+                                : 'U',
+                            style: TextStyle(
+                              fontSize: 16.0,
+                              fontWeight: FontWeight.bold,
+                              color: ThemeData().colorScheme.onSecondary,
+                              shadows: [
+                                Shadow(
+                                  color: ThemeData().colorScheme.onSurface,
+                                  offset: Offset(0.5, 0.5),
+                                  blurRadius: 10.0,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                       title: Text(
-                        user["userFirstName"] + ' ' + user["userSurname"],
+                        "${user["userFirstName"]}  ${user["userSurname"]} ${user["userRole"] > 1 ? '(Admin)' : ''}",
+                      ),
+                      subtitle: Text(
+                        "${user["userAddressLine2"] != "undefined" ? user["userAddressLine2"] : '--'}",
                       ),
                       trailing: IconButton(
                         icon: Icon(Icons.edit),

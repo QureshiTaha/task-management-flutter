@@ -59,6 +59,11 @@ class SideDrawer extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, '/my-tasks'),
             ),
             ListTile(
+              leading: Icon(Icons.message_rounded),
+              title: Text('Messenger'),
+              onTap: () => Navigator.pushNamed(context, '/message-home'),
+            ),
+            ListTile(
               leading: Icon(Icons.add_to_drive_rounded),
               title: Text('My Drive'),
               onTap: () => Navigator.pushNamed(context, '/drive'),
@@ -70,21 +75,19 @@ class SideDrawer extends StatelessWidget {
                   indent: 16,
                   endIndent: 16,
                 )
-                : Spacer(),
+                : Container(),
             isAdmin
                 ? ListTile(
                   leading: Icon(Icons.admin_panel_settings),
                   title: Text('Users'),
                   onTap: () => Navigator.pushNamed(context, '/users'),
                 )
-                : Spacer(),
-            isAdmin
-                ? ListTile(
-                  leading: Icon(Icons.align_horizontal_left),
-                  title: Text('Projects'),
-                  onTap: () => Navigator.pushNamed(context, '/projects'),
-                )
-                : Spacer(),
+                : Container(),
+            ListTile(
+              leading: Icon(Icons.align_horizontal_left),
+              title: isAdmin ? Text('Projects & Tags') : Text('My Projects'),
+              onTap: () => Navigator.pushNamed(context, '/projects'),
+            ),
 
             Divider(
               color: Colors.black,
@@ -96,11 +99,6 @@ class SideDrawer extends StatelessWidget {
               leading: Icon(Icons.person),
               title: Text('Profile'),
               onTap: () => Navigator.pushNamed(context, '/profile'),
-            ),
-            ListTile(
-              leading: Icon(Icons.message_rounded),
-              title: Text('Messenger'),
-              onTap: () => Navigator.pushNamed(context, '/message-home'),
             ),
             ListTile(
               leading: Icon(Icons.settings),
