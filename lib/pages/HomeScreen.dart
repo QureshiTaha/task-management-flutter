@@ -7,6 +7,7 @@ import 'package:task_management/pages/TaskDetailScreen.dart';
 import 'package:task_management/resources/drawer.dart';
 import 'package:task_management/resources/local_storage.dart';
 import 'package:intl/intl.dart';
+import 'package:task_management/utils/network_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> users = [];
   String? selectedUserID;
   bool isLoading = true;
+  bool isOffline = false;
   bool isAssigning = false;
   Map<String, dynamic> user = {};
   int totalCount = 0;
@@ -35,7 +37,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     fetchMessageLogs();
-    // Initialize notification handling and interaction listeners
     _handleInteractionWithNotification();
     _updateFCMTokenINDatabase();
 
@@ -43,6 +44,16 @@ class _HomeScreenState extends State<HomeScreen> {
       jsonEncode(localStorage.getObject('userData') ?? {}),
     );
     this.user = user;
+
+    // Call the onInternetReconnect function and pass the callback
+    NetworkUtils.onInternetReconnect(
+      () async => setState(() {
+        isOffline = false;
+        fetchMessageLogs();
+        _handleInteractionWithNotification();
+        _updateFCMTokenINDatabase();
+      }),
+    );
   }
 
   void _handleInteractionWithNotification() {
@@ -91,17 +102,27 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> fetchMessageLogs() async {
     final accessToken = await localStorage.getString('accessToken');
 
+    if (await NetworkUtils.hasInternetConnection() == false) {
+      setState(() {
+        isLoading = false;
+        isOffline = true;
+        messageLogs = [];
+      });
+      return;
+    }
     final userID = user['userID'];
-    final response = await client.get(
-      Uri.https(baseURL, '/api/v1/logs/by-user/$userID', {
-        'page': page.toString(),
-        'limit': limit.toString(),
-      }),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-    );
+    final response = await client
+        .get(
+          Uri.https(baseURL, '/api/v1/logs/by-user/$userID', {
+            'page': page.toString(),
+            'limit': limit.toString(),
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $accessToken',
+          },
+        )
+        .timeout(const Duration(seconds: 7));
 
     if (response.statusCode == 200) {
       setState(() {
@@ -114,6 +135,15 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         isLoading = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Failed to load data from server',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
       print('Failed to load logs: ${response.body}');
     }
   }
@@ -366,6 +396,22 @@ class _HomeScreenState extends State<HomeScreen> {
                               },
                             ),
                           ],
+                        ),
+                      ],
+                    ),
+                  )
+                  : isOffline
+                  ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.wifi_off, size: 80, color: Colors.red),
+                        Text(
+                          "You are offline.",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
                         ),
                       ],
                     ),

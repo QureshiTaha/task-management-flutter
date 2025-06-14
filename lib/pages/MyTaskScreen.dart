@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:api_cache_manager/models/cache_db_model.dart';
 import 'package:api_cache_manager/utils/cache_manager.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:task_management/pages/AddTaskScreen.dart';
@@ -11,9 +10,18 @@ import 'package:task_management/resources/local_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:task_management/utils/AnimatedFabFloating.dart';
 import 'package:task_management/utils/network_utils.dart';
+import 'package:shimmer/shimmer.dart';
 
 class MyTaskScreen extends StatefulWidget {
-  const MyTaskScreen({super.key});
+  final String projectID;
+  final String projectName;
+  final String tagName;
+  const MyTaskScreen({
+    super.key,
+    required this.projectID,
+    required this.tagName,
+    required this.projectName,
+  });
 
   @override
   State<MyTaskScreen> createState() => _MyTaskScreenState();
@@ -71,17 +79,14 @@ class _MyTaskScreenState extends State<MyTaskScreen> {
     final userRole = user['userRole'];
 
     setState(() {
-      isAdmin = userRole >= 2;
+      isAdmin = userRole >= 3;
     });
 
     fetchTasks(reset: true);
   }
 
   void onSearchChanged(String value) {
-    // Cancel previous timer
     debounceTimer?.cancel();
-
-    // Set new debounce timer
     debounceTimer = Timer(const Duration(milliseconds: 500), () {
       currentSearchTerm = value;
       fetchTasks(reset: true);
@@ -120,6 +125,8 @@ class _MyTaskScreenState extends State<MyTaskScreen> {
             {
               'search': currentSearchTerm,
               'page': currentPage.toString(),
+              'filterByProjectID': widget.projectID,
+              'filterByTag': widget.tagName,
               'limit': '5',
             },
           ),
@@ -339,31 +346,94 @@ class _MyTaskScreenState extends State<MyTaskScreen> {
     );
   }
 
+  Widget buildShimmerListItem() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            // Placeholder for avatar or icon
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Placeholder for text
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 16,
+                    width: double.infinity,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 14,
+                    width: MediaQuery.of(context).size.width * 0.5,
+                    color: Colors.grey[400],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Your Tasks')),
-      body:
-          tasks.isEmpty && isLoading
-              ? Center(child: CircularProgressIndicator())
-              : tasks.isEmpty
-              ? Center(
-                child: Text(
-                  'No tasks found',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: theme.colorScheme.onBackground.withOpacity(0.6),
-                  ),
-                ),
-              )
-              : Column(
-                children: [
-                  buildSearchBar(),
-                  Expanded(
-                    child: RefreshIndicator(
+      appBar: AppBar(
+        title: Text(
+          widget.projectName.isNotEmpty
+              ? widget.projectName
+              : widget.tagName.isNotEmpty
+              ? widget.tagName
+              : 'Your Tasks',
+        ),
+      ),
+      body: Column(
+        children: [
+          buildSearchBar(), // always show search bar
+          Expanded(
+            child:
+                tasks.isEmpty
+                    ? (isLoading
+                        ? ListView.builder(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: 10,
+                          itemBuilder:
+                              (context, index) => buildShimmerListItem(),
+                        )
+                        : Center(
+                          child: Text(
+                            'No tasks found',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: theme.colorScheme.onBackground.withOpacity(
+                                0.6,
+                              ),
+                            ),
+                          ),
+                        ))
+                    : RefreshIndicator(
                       onRefresh: () => fetchTasks(reset: true),
                       child: ListView.separated(
                         separatorBuilder: (_, __) => Container(height: 12),
@@ -388,11 +458,9 @@ class _MyTaskScreenState extends State<MyTaskScreen> {
                         },
                       ),
                     ),
-                  ),
-                  if (isLoading && tasks.isEmpty)
-                    Center(child: CircularProgressIndicator()),
-                ],
-              ),
+          ),
+        ],
+      ),
       floatingActionButton:
           isAdmin
               ? AnimatedFab(onPressed: _openAddTaskModal, text: "Create Task")

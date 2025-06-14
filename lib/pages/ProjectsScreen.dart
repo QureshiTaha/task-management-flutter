@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:task_management/pages/MyTaskScreen.dart';
 import 'package:task_management/resources/local_storage.dart';
 import 'package:task_management/utils/AnimatedFabFloating.dart';
+import 'package:task_management/utils/network_utils.dart';
 
 class ProjectsScreen extends StatefulWidget {
   const ProjectsScreen({super.key});
@@ -19,6 +21,7 @@ class _ProjectsScreenState extends State<ProjectsScreen>
   List<dynamic> tags = [];
   bool isLoading = true;
   String errorMessage = '';
+  String tagsMessage = '';
   Timer? _debounce;
   TextEditingController searchController = TextEditingController();
   var client = http.Client();
@@ -34,6 +37,9 @@ class _ProjectsScreenState extends State<ProjectsScreen>
   bool isFetchingMoreTags = false;
   bool showAddText = false;
   late TabController _tabController;
+  bool isOnline = true;
+  Map<String, dynamic> currentUser = {};
+  bool isAdmin = false;
 
   @override
   void initState() {
@@ -41,6 +47,21 @@ class _ProjectsScreenState extends State<ProjectsScreen>
     _tabController = TabController(length: 2, vsync: this);
     fetchProjects();
     fetchTags();
+    NetworkUtils.onInternetReconnect(
+      () async => setState(() {
+        isOnline = true;
+        fetchProjects();
+        fetchTags();
+      }),
+    );
+
+    final Map<String, dynamic> user = jsonDecode(
+      jsonEncode(localStorage.getObject('userData') ?? {}),
+    );
+    setState(() {
+      currentUser = user;
+      isAdmin = user['userRole'] != null && user['userRole'] >= 3;
+    });
 
     Timer(const Duration(seconds: 1), () {
       if (mounted) {
@@ -125,51 +146,63 @@ class _ProjectsScreenState extends State<ProjectsScreen>
       isFetchingMoreProjects = true;
       errorMessage = '';
     });
+    if (await NetworkUtils.hasInternetConnection()) {
+      try {
+        String slug = isAdmin ? '' : 'by-userID/${currentUser['userID']}';
 
-    try {
-      final response = await client.get(
-        Uri.https(baseURL, '/api/v1/projects', {
-          'search': search,
-          'page': '$page',
-          'limit': '$limit',
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $accessToken',
-        },
-      );
+        final response = await client.get(
+          Uri.https(baseURL, '/api/v1/projects/$slug', {
+            'search': search,
+            'page': '$page',
+            'limit': '$limit',
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $accessToken',
+          },
+        );
 
-      final dataBody = jsonDecode(response.body);
+        final dataBody = jsonDecode(response.body);
 
-      if (response.statusCode == 200 && dataBody["success"] == true) {
-        final List newProjects = dataBody["data"];
-        final bool serverHasMore =
-            dataBody["data"].isNotEmpty &&
-            (dataBody["data"].last["haveMore"] ?? false);
+        if (response.statusCode == 200 && dataBody["success"] == true) {
+          final List newProjects = dataBody["data"];
+          final bool serverHasMore =
+              dataBody["data"].isNotEmpty &&
+              (dataBody["data"].last["haveMore"] ?? false);
 
+          setState(() {
+            if (page == 1) {
+              projects = newProjects;
+            } else {
+              projects.addAll(newProjects);
+            }
+            isLoading = false;
+            haveMoreProjects = serverHasMore;
+            isFetchingMoreProjects = false;
+          });
+        } else {
+          setState(() {
+            isLoading = false;
+            isFetchingMoreProjects = false;
+            errorMessage =
+                response.statusCode == 201
+                    ? dataBody["message"]
+                    : 'Failed to load projects';
+          });
+        }
+      } catch (e) {
+        debugPrint("ERROR:" + e.toString());
         setState(() {
-          if (page == 1) {
-            projects = newProjects;
-          } else {
-            projects.addAll(newProjects);
-          }
-          isLoading = false;
-          haveMoreProjects = serverHasMore;
-          isFetchingMoreProjects = false;
-        });
-      } else {
-        setState(() {
           isLoading = false;
           isFetchingMoreProjects = false;
-          errorMessage = dataBody["message"] ?? 'Failed to load projects';
+          errorMessage = 'An error occurred while fetching projects';
         });
       }
-    } catch (e) {
-      debugPrint("ERROR:" + e.toString());
+    } else {
       setState(() {
         isLoading = false;
         isFetchingMoreProjects = false;
-        errorMessage = 'An error occurred: $e';
+        errorMessage = ' 📶❌ No internet connection';
       });
     }
   }
@@ -320,53 +353,60 @@ class _ProjectsScreenState extends State<ProjectsScreen>
     setState(() {
       if (page == 1) isLoading = true;
       isFetchingMoreTags = true;
-      errorMessage = '';
+      tagsMessage = '';
     });
+    if (await NetworkUtils.hasInternetConnection()) {
+      try {
+        final response = await client.get(
+          Uri.https(baseURL, '/api/v1/tasks/get-tags', {
+            'search': search,
+            'page': '$page',
+            'limit': '$limit',
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $accessToken',
+          },
+        );
 
-    try {
-      final response = await client.get(
-        Uri.https(baseURL, '/api/v1/tasks/get-tags', {
-          'search': search,
-          'page': '$page',
-          'limit': '$limit',
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $accessToken',
-        },
-      );
+        final dataBody = jsonDecode(response.body);
 
-      final dataBody = jsonDecode(response.body);
+        if (response.statusCode == 200 && dataBody["success"] == true) {
+          final List newTag = dataBody["data"];
+          final bool serverHasMore =
+              dataBody["data"].isNotEmpty &&
+              (dataBody["data"].last["haveMore"] ?? false);
 
-      if (response.statusCode == 200 && dataBody["success"] == true) {
-        final List newTag = dataBody["data"];
-        final bool serverHasMore =
-            dataBody["data"].isNotEmpty &&
-            (dataBody["data"].last["haveMore"] ?? false);
-
+          setState(() {
+            if (page == 1) {
+              tags = newTag;
+            } else {
+              tags.addAll(newTag);
+            }
+            isLoading = false;
+            haveMoreTags = serverHasMore;
+            isFetchingMoreTags = false;
+          });
+        } else {
+          setState(() {
+            isLoading = false;
+            isFetchingMoreTags = false;
+            tagsMessage = dataBody["message"] ?? 'Failed to load Tag';
+          });
+        }
+      } catch (e) {
+        debugPrint("ERROR:" + e.toString());
         setState(() {
-          if (page == 1) {
-            tags = newTag;
-          } else {
-            tags.addAll(newTag);
-          }
-          isLoading = false;
-          haveMoreTags = serverHasMore;
-          isFetchingMoreTags = false;
-        });
-      } else {
-        setState(() {
           isLoading = false;
           isFetchingMoreTags = false;
-          errorMessage = dataBody["message"] ?? 'Failed to load Tag';
+          tagsMessage = 'An error occurred: $e';
         });
       }
-    } catch (e) {
-      debugPrint("ERROR:" + e.toString());
+    } else {
       setState(() {
         isLoading = false;
         isFetchingMoreTags = false;
-        errorMessage = 'An error occurred: $e';
+        tagsMessage = ' 📶❌ No internet connection';
       });
     }
   }
@@ -644,14 +684,21 @@ class _ProjectsScreenState extends State<ProjectsScreen>
           ),
         ),
       ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedFab(onPressed: showAddProjectDialog, text: 'Add Project'),
-          const SizedBox(height: 8),
-          AnimatedFab(onPressed: showAddTagsDialog, text: 'Add Tags'),
-        ],
-      ),
+
+      floatingActionButton:
+          isAdmin
+              ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedFab(
+                    onPressed: showAddProjectDialog,
+                    text: 'Add Project',
+                  ),
+                  const SizedBox(height: 8),
+                  AnimatedFab(onPressed: showAddTagsDialog, text: 'Add Tags'),
+                ],
+              )
+              : null,
     );
   }
 
@@ -717,10 +764,16 @@ class _ProjectsScreenState extends State<ProjectsScreen>
                     }),
               ),
               onTap:
-                  () => Navigator.pushNamed(
+                  () => Navigator.push(
                     context,
-                    '/taskByProjects',
-                    arguments: {"projectID": projectID, ...project},
+                    MaterialPageRoute(
+                      builder:
+                          (_) => MyTaskScreen(
+                            projectID: projectID,
+                            tagName: '',
+                            projectName: project["name"] ?? 'No Name',
+                          ),
+                    ),
                   ),
               onLongPress: () => showEditProjectDialog(project),
             ),
@@ -733,10 +786,10 @@ class _ProjectsScreenState extends State<ProjectsScreen>
   Widget _buildTagsTab(ThemeData theme) {
     if (isLoading && currentTagsPage == 1) {
       return const Center(child: CircularProgressIndicator());
-    } else if (errorMessage.isNotEmpty) {
+    } else if (tagsMessage.isNotEmpty) {
       return Center(
         child: Text(
-          errorMessage,
+          tagsMessage,
           style: TextStyle(color: theme.colorScheme.error, fontSize: 16),
         ),
       );
@@ -785,6 +838,18 @@ class _ProjectsScreenState extends State<ProjectsScreen>
                       });
                     }),
               ),
+              onTap:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => MyTaskScreen(
+                            projectID: '',
+                            projectName: '',
+                            tagName: tagName,
+                          ),
+                    ),
+                  ),
             ),
           );
         },

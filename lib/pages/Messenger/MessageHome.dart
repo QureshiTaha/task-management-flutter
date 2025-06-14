@@ -5,7 +5,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:task_management/main.dart';
-import 'package:task_management/pages/Messenger/ChatScreen.dart';
 import 'package:task_management/resources/localDBHelper.dart';
 import 'package:task_management/resources/local_storage.dart';
 import 'package:task_management/resources/model/chatListModal.dart';
@@ -21,32 +20,58 @@ class MessengerHomeScreen extends StatefulWidget {
 }
 
 class _MessengerHomeScreenState extends State<MessengerHomeScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   List<dynamic> recentChats = [];
   List<dynamic> users = [];
   bool isLoading = false;
   bool haveMore = true;
   int pageCounter = 1;
-  final SocketService socketService = SocketService();
-  final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
   late AppLifecycleState _appState = AppLifecycleState.resumed;
+  final SocketService socketService = SocketService();
   final client = http.Client();
   final TextEditingController searchController = TextEditingController();
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+  final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
   late String userID;
   late String baseURL;
+  late RouteObserver<PageRoute> routeObserver;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    routeObserver = RouteObserver<PageRoute>();
     baseURL = dotenv.get('HOST');
     final Map<String, dynamic> user = jsonDecode(
       jsonEncode(localStorage.getObject('userData') ?? {}),
     );
     userID = user['userID'];
     connectToSocket(userID);
+    fetchRecentChats();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic>) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    routeObserver.unsubscribe(this);
+    socketService.dispose();
+    super.dispose();
+  }
+
+  // Called when navigated back to this screen
+  @override
+  void didPopNext() {
+    print('Returned to this page after another page popped!');
+    // Refresh chat list when coming back from chat
     fetchRecentChats();
   }
 
@@ -140,10 +165,18 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen>
     });
   }
 
-  Future<void> fetchRecentChats() async {
-    print("fetchRecentChats: $isLoading, $haveMore");
-    if (isLoading || !haveMore) return;
-    recentChats = [];
+  Future<void> refreshChats() async {
+    await fetchRecentChats(reset: true);
+  }
+
+  Future<void> fetchRecentChats({bool reset = false}) async {
+    if (isLoading) return;
+    if (reset) {
+      pageCounter = 1;
+      recentChats.clear();
+      haveMore = true;
+    }
+
     setState(() => isLoading = true);
 
     final currentPage = pageCounter; // Keep track of the current page
@@ -174,14 +207,10 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen>
                 .toList();
 
         if (newChatList.isNotEmpty) {
-          // Save messages to the local db
           for (var chats in newChatList) {
             final chatList = ChatList.fromMap(chats);
-            print("Inserting chat: ${chatList.toMap()}");
             await ChatDatabase.instance.insertChat(chatList);
           }
-
-          // Get messages from the database after inserting
           final chatsFromLocalDb = await ChatDatabase.instance.getChatList(
             userID,
           );
@@ -194,10 +223,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen>
                   .toList();
 
           setState(() {
-            recentChats.insertAll(
-              0,
-              messageMaps,
-            ); // Insert message maps at the start
+            recentChats.insertAll(0, messageMaps);
           });
           // Check if there are more messages to load
           if (data['data'][data['data'].length - 1]['haveMore'] == true) {
@@ -218,12 +244,8 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen>
       final chatsFromLocalDb = await ChatDatabase.instance.getChatList(userID);
       final messageMaps =
           chatsFromLocalDb.map((msg) => msg.toMap()).toList().reversed.toList();
-      print(messageMaps);
       setState(() {
-        recentChats.insertAll(
-          0,
-          messageMaps,
-        ); // Insert message maps at the start
+        recentChats.insertAll(0, messageMaps);
       });
     }
 
@@ -406,7 +428,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen>
                         pageCounter = 1;
                         isLoading = false;
                       });
-                      await fetchRecentChats();
+                      await fetchRecentChats(reset: true);
 
                       // navigatorKey.currentState?.pushNamed(
                       //   '/chat',
@@ -456,7 +478,7 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen>
 
       if (response.statusCode == 200) {
         _showSnack("Chat started successfully");
-        await fetchRecentChats();
+        await fetchRecentChats(reset: true);
       } else {
         _showSnack("Failed to create chat: ${response.body}");
       }
@@ -552,116 +574,117 @@ class _MessengerHomeScreenState extends State<MessengerHomeScreen>
               ? const Center(child: CircularProgressIndicator())
               : recentChats.isEmpty
               ? const Center(child: Text('No chats found.'))
-              : ListView.builder(
-                itemCount: recentChats.length,
-                itemBuilder: (context, index) {
-                  final chat = recentChats[index];
-                  // split chatname with space and use its 2 initial if it have length or use just first letter
-                  final chatInitials =
-                      chat['chatName'] != null
-                          ? chat['chatName'].split(' ').length > 1
-                              ? chat['chatName'].split(' ')[0][0] +
-                                  chat['chatName'].split(' ')[1][0]
-                              : chat['chatName'].split(' ')[0][0]
-                          : 'U';
+              : RefreshIndicator(
+                onRefresh: refreshChats,
+                child: ListView.builder(
+                  itemCount: recentChats.length,
+                  itemBuilder: (context, index) {
+                    final chat = recentChats[index];
+                    // split chatname with space and use its 2 initial if it have length or use just first letter
+                    final chatInitials =
+                        chat['chatName'] != null
+                            ? chat['chatName'].split(' ').length > 1
+                                ? chat['chatName'].split(' ')[0][0] +
+                                    chat['chatName'].split(' ')[1][0]
+                                : chat['chatName'].split(' ')[0][0]
+                            : 'U';
 
-                  // Step 1: Extract reply text if present
-                  String mainText = chat['recentMessage'];
+                    // Step 1: Extract reply text if present
+                    String mainText = chat['recentMessage'];
 
-                  // final replyRegex = RegExp(r'<reply>(.*?)<\/reply>', dotAll: true);
-                  final replyRegex = RegExp(
-                    r'<reply(?: messageID="(.*?)")?>(.*?)<\/reply>',
-                    dotAll: true,
-                  );
-                  final match = replyRegex.firstMatch(chat['recentMessage']);
-                  if (match != null) {
-                    mainText = chat['recentMessage']
-                        .replaceFirst(replyRegex, '')
-                        .trim()
-                        .replaceAll('\n', ' ');
-                    mainText =
-                        mainText.length > 50
-                            ? mainText.substring(0, 50) + '...'
-                            : mainText;
-                  }
-                  return ListTile(
-                    leading:
-                        chat['chatType'] == "private"
-                            ? CircleAvatar(
-                              backgroundColor: Colors.black26,
-                              radius: 23.0,
-                              child: CircleAvatar(
-                                backgroundColor:
-                                    ThemeData().colorScheme.primary,
-                                radius: 21.0,
-                                child: Text(
-                                  chatInitials.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 16.0,
-                                    fontWeight: FontWeight.bold,
-                                    color: ThemeData().colorScheme.onSecondary,
-                                    shadows: [
-                                      Shadow(
-                                        color:
-                                            ThemeData().colorScheme.onSurface,
-                                        offset: Offset(0.5, 0.5),
-                                        blurRadius: 10.0,
-                                      ),
-                                    ],
+                    // final replyRegex = RegExp(r'<reply>(.*?)<\/reply>', dotAll: true);
+                    final replyRegex = RegExp(
+                      r'<reply(?: messageID="(.*?)")?>(.*?)<\/reply>',
+                      dotAll: true,
+                    );
+                    final match = replyRegex.firstMatch(chat['recentMessage']);
+                    if (match != null) {
+                      mainText = chat['recentMessage']
+                          .replaceFirst(replyRegex, '')
+                          .trim()
+                          .replaceAll('\n', ' ');
+                      mainText =
+                          mainText.length > 50
+                              ? mainText.substring(0, 50) + '...'
+                              : mainText;
+                    }
+                    return ListTile(
+                      leading:
+                          chat['chatType'] == "private"
+                              ? CircleAvatar(
+                                backgroundColor: Colors.black26,
+                                radius: 23.0,
+                                child: CircleAvatar(
+                                  backgroundColor:
+                                      ThemeData().colorScheme.primary,
+                                  radius: 21.0,
+                                  child: Text(
+                                    chatInitials.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 16.0,
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          ThemeData().colorScheme.onSecondary,
+                                      shadows: [
+                                        Shadow(
+                                          color:
+                                              ThemeData().colorScheme.onSurface,
+                                          offset: Offset(0.5, 0.5),
+                                          blurRadius: 10.0,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              )
+                              : CircleAvatar(
+                                backgroundColor: Colors.black26,
+                                radius: 23.0,
+                                child: CircleAvatar(
+                                  backgroundColor:
+                                      Colors
+                                          .blue, // You can customize the color~
+                                  child: Icon(
+                                    Icons.group_sharp, // Profile icon
+                                    color: Colors.white,
                                   ),
                                 ),
                               ),
-                            )
-                            : CircleAvatar(
-                              backgroundColor: Colors.black26,
-                              radius: 23.0,
-                              child: CircleAvatar(
-                                backgroundColor:
-                                    Colors.blue, // You can customize the color~
-                                child: Icon(
-                                  Icons.group_sharp, // Profile icon
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                    title: Text(chat['chatName']),
-                    // subtitle: Text(chat['recentMessage']),
-                    // make subtitle with length 20
-                    subtitle: Text(
-                      mainText.length > 50
-                          ? mainText.substring(0, 50) + '...'
-                          : mainText,
-                    ),
-                    trailing: Text(
-                      _formatTime(chat['recentMessageTimestamp']),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    onTap: () {
-                      navigatorKey.currentState?.pushNamed(
-                        '/chat',
-                        arguments: {
-                          'chatID': chat['chatID'],
-                          'chatType': chat['chatType'],
-                          'chatName': chat['chatName'],
-                          'receiverUserID':
-                              chat['receiverUserID'] ?? chat['chatID'],
-                        },
-                      );
-                    },
-                  );
-                },
+                      title: Text(chat['chatName']),
+                      // subtitle: Text(chat['recentMessage']),
+                      // make subtitle with length 20
+                      subtitle: Text(
+                        mainText.length > 50
+                            ? mainText.substring(0, 50) + '...'
+                            : mainText,
+                      ),
+                      trailing: Text(
+                        _formatTime(chat['recentMessageTimestamp']),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      onTap: () {
+                        navigatorKey.currentState?.pushNamed(
+                          '/chat',
+                          arguments: {
+                            'chatID': chat['chatID'],
+                            'chatType': chat['chatType'],
+                            'chatName': chat['chatName'],
+                            'receiverUserID':
+                                chat['receiverUserID'] ?? chat['chatID'],
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openNewChatDialog,
         child: const Icon(Icons.add),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    socketService.dispose(); // Dispose the socket connection
-    super.dispose();
   }
 }

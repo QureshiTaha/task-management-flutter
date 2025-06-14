@@ -18,8 +18,23 @@ class ChatDatabase {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    await deleteDatabase(path);
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    // await deleteDatabase(path); //Add this When Appending New DB
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: _createDB,
+      onUpgrade: _migrateDB,
+    );
+  }
+
+  Future<void> _migrateDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 1) {
+      await _createDB(db, newVersion);
+    }
+    // Add more version checks here as your app evolves
+    // if (oldVersion < 2) {
+    //   await db.execute('ALTER TABLE messages ADD COLUMN new_column TEXT');
+    // }
   }
 
   Future _createDB(Database db, int version) async {
@@ -112,6 +127,26 @@ class ChatDatabase {
       chat.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  Future<void> clearAllChats() async {
+    final db = await instance.database;
+    await db.delete('chats');
+  }
+
+  Future<void> insertMultipleChats(List<ChatList> chats) async {
+    final db = await instance.database;
+    final batch = db.batch();
+
+    for (final chat in chats) {
+      batch.insert(
+        'chats',
+        chat.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    await batch.commit();
   }
 
   Future<List<ChatList>> getChatList(String userID) async {

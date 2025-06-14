@@ -59,6 +59,11 @@ class SideDrawer extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, '/my-tasks'),
             ),
             ListTile(
+              leading: Icon(Icons.align_horizontal_left),
+              title: isAdmin ? Text('Projects & Tags') : Text('My Projects'),
+              onTap: () => Navigator.pushNamed(context, '/projects'),
+            ),
+            ListTile(
               leading: Icon(Icons.message_rounded),
               title: Text('Messenger'),
               onTap: () => Navigator.pushNamed(context, '/message-home'),
@@ -83,11 +88,6 @@ class SideDrawer extends StatelessWidget {
                   onTap: () => Navigator.pushNamed(context, '/users'),
                 )
                 : Container(),
-            ListTile(
-              leading: Icon(Icons.align_horizontal_left),
-              title: isAdmin ? Text('Projects & Tags') : Text('My Projects'),
-              onTap: () => Navigator.pushNamed(context, '/projects'),
-            ),
 
             Divider(
               color: Colors.black,

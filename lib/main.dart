@@ -76,7 +76,9 @@ class MainApp extends StatelessWidget {
             '/settings': (context) => SettingsScreen(),
             '/users': (context) => UsersScreen(),
             '/projects': (context) => ProjectsScreen(),
-            '/my-tasks': (context) => MyTaskScreen(),
+            '/my-tasks':
+                (context) =>
+                    MyTaskScreen(projectID: '', tagName: '', projectName: ''),
             '/drive': (context) => WebDriveScreen(),
             '/message-home': (context) => MessengerHomeScreen(),
           },
@@ -166,10 +168,11 @@ void showLocalNotification(message) {
     return true;
   });
   print("👉currentRoute: $currentPath");
+  print("👉message: $message");
   flutterLocalNotificationsPlugin.show(
     0,
-    "New MessageMain",
-    "",
+    "New Message",
+    message['message'] ?? "",
     const NotificationDetails(
       android: AndroidNotificationDetails(
         'chat_channel',

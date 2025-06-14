@@ -52,6 +52,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final Map<String, dynamic> responseData = json.decode(response.body);
 
       if (response.statusCode == 200 && responseData['status'] == true) {
+        localStorage.putString("loginUserEmail", _userEmailController.text);
+        localStorage.putString("loginUserPassword", _passwordController.text);
         localStorage.putString(
           'accessToken',
           responseData['data']['accessToken'],

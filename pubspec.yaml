@@ -62,6 +62,7 @@ dependencies:
   device_info_plus: ^11.4.0
   open_file: ^3.5.10
   flutter_datetime_picker_plus: ^2.1.0
+  shimmer: ^3.0.0
   # webview_flutter: 
 
 dev_dependencies:

@@ -459,28 +459,39 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   String? _formatTime(String? isoDateStr) {
+    String cleanUtcFormat(String isoString) {
+      if (isoString.endsWith('Z')) {
+        isoString = isoString.replaceFirst('T', ' ').replaceFirst('Z', '');
+      }
+      return isoString;
+    }
+
     if (isoDateStr == null) return null;
 
     DateTime now = DateTime.now();
     DateTime reminderTime;
-
+    String formatted = cleanUtcFormat(isoDateStr);
     try {
-      reminderTime =
-          DateTime.parse(isoDateStr).toLocal(); // Convert to local time
+      reminderTime = DateTime.parse(formatted);
     } catch (_) {
       return null;
     }
 
     Duration diff = reminderTime.difference(now);
 
-    if (diff.isNegative) return null; // Time has passed
-
-    if (diff.inMinutes <= 2) return "Reminder in a few";
-    if (diff.inMinutes < 60) return "Reminder in ${diff.inMinutes} minutes";
-    if (diff.inHours < 24)
-      return "Reminder in ${diff.inHours} hour${diff.inHours > 1 ? 's' : ''}";
-    if (diff.inDays < 7)
-      return "Reminder in ${diff.inDays} day${diff.inDays > 1 ? 's' : ''}";
+    if (diff.inSeconds < -60) {
+      return null;
+    } else if (diff.inSeconds < 0) {
+      return "Reminder just passed";
+    } else if (diff.inMinutes < 2) {
+      return "Reminder in a few moments";
+    } else if (diff.inMinutes < 60) {
+      return "Reminder in ${diff.inMinutes} minute${diff.inMinutes == 1 ? '' : 's'}";
+    } else if (diff.inHours < 24) {
+      return "Reminder in ${diff.inHours} hour${diff.inHours == 1 ? '' : 's'}";
+    } else if (diff.inDays < 7) {
+      return "Reminder in ${diff.inDays} day${diff.inDays == 1 ? '' : 's'}";
+    }
 
     return "Reminder at ${_formatReadableDate(reminderTime)}";
   }
