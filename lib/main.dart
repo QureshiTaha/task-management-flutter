@@ -6,8 +6,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:provider/provider.dart';
 import 'package:task_management/firebase_options.dart';
 import 'package:task_management/pages/Messenger/ChatScreen.dart';
+import 'package:task_management/resources/ThemeNotifier.dart';
 import 'package:task_management/resources/local_storage.dart';
 import 'package:task_management/resources/model/chatMessageModal.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -27,7 +29,9 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main(context) async {
   await dotenv.load(fileName: ".env");
   WidgetsFlutterBinding.ensureInitialized();
+
   try {
+    await localStorage.init();
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
@@ -40,7 +44,13 @@ void main(context) async {
     debugPrint("❌ Firebase Initialization Error: $e");
   }
 
-  runApp(MyApp(context));
+  // runApp(MyApp(context));
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeNotifier(),
+      child: MyApp(context),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -57,16 +67,23 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
     return Scaffold(
       body: Center(
         child: MaterialApp(
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
-          theme: lightTheme,
-          darkTheme: darkTheme,
-          themeMode:
-              ThemeMode
-                  .system, // Automatically switches based on system setting
+          // theme: lightTheme,
+          // darkTheme: darkTheme,
+          theme: themeNotifier.currentTheme,
+
+          themeMode: themeNotifier.themeMode,
+          // localStorage.getString('themeMode') == 'dark'
+          //     ? ThemeMode.dark
+          //     : localStorage.getString('themeMode') == 'light'
+          //     ? ThemeMode.light
+          //     : ThemeMode
+          //         .system, // Automatically switches based on system setting
           initialRoute: '/splash',
           routes: {
             '/splash': (context) => SplashScreen(),

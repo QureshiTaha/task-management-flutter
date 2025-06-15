@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'package:task_management/pages/SettingsScreen.dart';
+import 'package:task_management/resources/ThemeNotifier.dart';
 import 'package:task_management/resources/local_storage.dart';
 import 'package:task_management/utils/network_utils.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -91,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen>
         // If logged in, proceed to home directly if offline
         if (!await NetworkUtils.hasInternetConnection()) {
           _updateStatus('Offline mode activated');
-          await _handleWakeLock();
+          await initSettings();
           _navigateToHome();
           return;
         }
@@ -116,7 +119,7 @@ class _SplashScreenState extends State<SplashScreen>
             }
           }
 
-          await _handleWakeLock();
+          await initSettings();
           _navigateToHome();
         } catch (e) {
           debugPrint('Login error: $e');
@@ -172,11 +175,31 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _handleWakeLock() async {
-    final wakeLockPref = await localStorage.getString('wakeLock');
-    final isWakeLock = wakeLockPref == 'true';
+    final wakeLockPref = await localStorage.getString('wakelock');
+    final isWakeLock = wakeLockPref == 'true' ? true : false;
 
     debugPrint('🔒 isWakeLock: $isWakeLock');
-    if (isWakeLock) WakelockPlus.enable();
+    isWakeLock ? WakelockPlus.enable() : WakelockPlus.disable();
+  }
+
+  Future<void> _handleTheme() async {
+    final themeModeStrPref = await localStorage.getString('themeMode');
+    final themeNotifier = Provider.of<ThemeNotifier>(context, listen: false);
+    switch (themeModeStrPref) {
+      case 'light':
+        themeNotifier.setThemeMode(AppThemeMode.light);
+        break;
+      case 'dark':
+        themeNotifier.setThemeMode(AppThemeMode.dark);
+        break;
+      default:
+        themeNotifier.setThemeMode(AppThemeMode.system);
+    }
+  }
+
+  Future<void> initSettings() async {
+    _handleTheme();
+    _handleWakeLock();
   }
 
   Future<bool> login(String userEmail, String userPassword) async {

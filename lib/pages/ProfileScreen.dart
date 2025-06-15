@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:task_management/pages/SplashScreen.dart';
 import 'package:task_management/resources/local_storage.dart';
+import 'package:task_management/utils/network_utils.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -49,33 +50,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    try {
-      final response = await client.get(
-        Uri.https("$baseURL", '/api/v1/users/getUserByEmail/$userEmail'),
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      );
-      if (response.statusCode == 200) {
+    if (await NetworkUtils.hasInternetConnection()) {
+      try {
+        final response = await client.get(
+          Uri.https("$baseURL", '/api/v1/users/getUserByEmail/$userEmail'),
+          headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        );
+        if (response.statusCode == 200) {
+          setState(() {
+            rawUserData = jsonDecode(response.body);
+            userData = rawUserData?["data"][0];
+            isLoading = false;
+            _firstNameController.text = userData?["userFirstName"] ?? '';
+            _surnameController.text = userData?["userSurname"] ?? '';
+            _addressLine1Controller.text = userData?["userAddressLine1"] ?? '';
+            _officeLocationController.text =
+                userData?["userAddressLine2"] ?? '';
+            _postcodeController.text = userData?["userAddressPostcode"] ?? '';
+            _userPhoneController.text = userData?["userPhone"].toString() ?? '';
+          });
+        } else {
+          setState(() {
+            isLoading = false;
+            errorMessage = 'Failed to load user data';
+          });
+        }
+      } catch (e) {
         setState(() {
-          rawUserData = jsonDecode(response.body);
-          userData = rawUserData?["data"][0];
           isLoading = false;
-          _firstNameController.text = userData?["userFirstName"] ?? '';
-          _surnameController.text = userData?["userSurname"] ?? '';
-          _addressLine1Controller.text = userData?["userAddressLine1"] ?? '';
-          _officeLocationController.text = userData?["userAddressLine2"] ?? '';
-          _postcodeController.text = userData?["userAddressPostcode"] ?? '';
-          _userPhoneController.text = userData?["userPhone"].toString() ?? '';
-        });
-      } else {
-        setState(() {
-          isLoading = false;
-          errorMessage = 'Failed to load user data';
+          errorMessage = 'An error occurred While Fetching User Data';
         });
       }
-    } catch (e) {
+    } else {
       setState(() {
         isLoading = false;
-        errorMessage = 'An error occurred: $e';
+        errorMessage = 'No Internet Connection';
       });
     }
   }
@@ -242,60 +251,188 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Profile')),
+      appBar: AppBar(
+        title: Text(
+          'My Profile',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Theme.of(context).primaryColor,
+      ),
       body:
           isLoading
-              ? Center(child: CircularProgressIndicator())
+              ? Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).primaryColor,
+                  ),
+                ),
+              )
               : errorMessage.isNotEmpty
               ? Center(
-                child: Text(errorMessage, style: TextStyle(color: Colors.red)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      errorMessage,
+                      style: TextStyle(color: Colors.red, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        // Add retry logic here
+                        setState(() => errorMessage = '');
+                        fetchUserData();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        iconColor: Theme.of(context).primaryColor,
+                      ),
+                      child: Text('Try Again'),
+                    ),
+                  ],
+                ),
               )
-              : Padding(
-                padding: const EdgeInsets.all(16.0),
+              : SingleChildScrollView(
+                padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    TextField(
-                      controller: _firstNameController,
-                      decoration: InputDecoration(labelText: 'First Name*'),
-                    ),
-                    TextField(
-                      controller: _surnameController,
-                      decoration: InputDecoration(labelText: 'Surname*'),
-                    ),
-                    TextField(
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                      ],
-                      maxLength: 10,
-                      controller: _userPhoneController,
-                      decoration: InputDecoration(labelText: 'Contact Phone*'),
-                    ),
-                    TextField(
-                      controller: _officeLocationController,
-                      decoration: InputDecoration(labelText: 'Office Location'),
-                    ),
-                    TextField(
-                      controller: _addressLine1Controller,
-                      decoration: InputDecoration(labelText: 'Address'),
-                    ),
-                    TextField(
-                      controller: _postcodeController,
-                      decoration: InputDecoration(labelText: 'Postcode'),
+                    // Profile Picture Placeholder
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.grey[200],
+                      child: Icon(
+                        Icons.person,
+                        size: 50,
+                        color: Colors.grey[600],
+                      ),
                     ),
                     SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton(
-                          onPressed: updateUser,
-                          child: Text('Update Profile'),
+
+                    // Form Fields
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            TextFormField(
+                              controller: _firstNameController,
+                              decoration: InputDecoration(
+                                labelText: 'First Name',
+                                labelStyle: TextStyle(color: Colors.grey[600]),
+                                prefixIcon: Icon(Icons.person_outline),
+                                border: OutlineInputBorder(),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            TextFormField(
+                              controller: _surnameController,
+                              decoration: InputDecoration(
+                                labelText: 'Surname',
+                                labelStyle: TextStyle(color: Colors.grey[600]),
+                                prefixIcon: Icon(Icons.person_outline),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            TextFormField(
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9]'),
+                                ),
+                              ],
+                              maxLength: 10,
+                              controller: _userPhoneController,
+                              decoration: InputDecoration(
+                                labelText: 'Contact Phone',
+                                labelStyle: TextStyle(color: Colors.grey[600]),
+                                prefixIcon: Icon(Icons.phone),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            TextFormField(
+                              controller: _officeLocationController,
+                              decoration: InputDecoration(
+                                labelText: 'Office Location',
+                                labelStyle: TextStyle(color: Colors.grey[600]),
+                                prefixIcon: Icon(Icons.work_outline),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            TextFormField(
+                              controller: _addressLine1Controller,
+                              decoration: InputDecoration(
+                                labelText: 'Address',
+                                labelStyle: TextStyle(color: Colors.grey[600]),
+                                prefixIcon: Icon(Icons.home_outlined),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            TextFormField(
+                              controller: _postcodeController,
+                              decoration: InputDecoration(
+                                labelText: 'Postcode',
+                                labelStyle: TextStyle(color: Colors.grey[600]),
+                                prefixIcon: Icon(Icons.location_on_outlined),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ],
                         ),
-                        ElevatedButton(
-                          onPressed: changePasswordPopup,
-                          child: Text('Change Password'),
+                      ),
+                    ),
+
+                    SizedBox(height: 24),
+
+                    // Action Buttons
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: updateUser,
+                        style: ElevatedButton.styleFrom(
+                          iconColor: Theme.of(context).primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 2,
                         ),
-                      ],
+                        child: Padding(
+                          padding: const EdgeInsets.all(14.0),
+                          child: Text(
+                            'UPDATE PROFILE',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 12),
+
+                    TextButton(
+                      onPressed: changePasswordPopup,
+                      child: Text(
+                        'Change Password',
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
                   ],
                 ),
