@@ -832,7 +832,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           TextButton.icon(
                             icon: Icon(
                               Icons.message,
-                              color: theme.colorScheme.onPrimary,
+                              color: ThemeData().colorScheme.onPrimary,
                               size: 20,
                             ),
                             label: const Text('Update on Task'),

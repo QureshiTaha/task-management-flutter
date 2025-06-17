@@ -22,6 +22,7 @@ final ThemeData lightTheme = ThemeData(
     secondary: Colors.lightBlueAccent,
     onPrimary: Colors.white,
     onSecondary: Colors.black,
+    secondaryContainer: const Color.fromARGB(255, 210, 176, 255),
   ),
 );
 
@@ -44,5 +45,6 @@ final ThemeData darkTheme = ThemeData(
     secondary: Colors.teal,
     onPrimary: Colors.white,
     onSecondary: Colors.white70,
+    secondaryContainer: const Color(0xFF19013A),
   ),
 );

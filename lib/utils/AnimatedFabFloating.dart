@@ -54,7 +54,7 @@ class _AnimatedFabState extends State<AnimatedFab>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colorScheme = ThemeData().colorScheme;
 
     return AnimatedBuilder(
       animation: _widthAnimation,
@@ -63,7 +63,7 @@ class _AnimatedFabState extends State<AnimatedFab>
           width: _widthAnimation.value,
           height: 56.0,
           child: FloatingActionButton(
-            backgroundColor: colorScheme.primary,
+            backgroundColor: colorScheme.secondaryContainer,
             onPressed: widget.onPressed,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18.0),
@@ -71,7 +71,7 @@ class _AnimatedFabState extends State<AnimatedFab>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.add),
+                Icon(Icons.add, color: colorScheme.onSecondaryContainer),
                 if (showLabel) ...[
                   const SizedBox(width: 8),
                   Flexible(
@@ -79,7 +79,10 @@ class _AnimatedFabState extends State<AnimatedFab>
                       widget.text,
                       overflow: TextOverflow.fade,
                       softWrap: false,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSecondaryContainer,
+                      ),
                     ),
                   ),
                 ],
