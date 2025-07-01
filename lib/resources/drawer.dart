@@ -74,6 +74,13 @@ class SideDrawer extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, '/drive'),
             ),
             isAdmin
+                ? ListTile(
+                  leading: Icon(Icons.add_to_drive_rounded),
+                  title: Text('Company Data'),
+                  onTap: () => Navigator.pushNamed(context, '/company-data'),
+                )
+                : Container(),
+            isAdmin
                 ? Divider(
                   color: Colors.black,
                   thickness: 0.5,

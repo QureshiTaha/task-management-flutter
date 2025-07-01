@@ -8,6 +8,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
 import 'package:task_management/firebase_options.dart';
+import 'package:task_management/pages/CompanyDataScreen.dart';
 import 'package:task_management/pages/Messenger/ChatScreen.dart';
 import 'package:task_management/resources/ThemeNotifier.dart';
 import 'package:task_management/resources/local_storage.dart';
@@ -97,6 +98,7 @@ class MainApp extends StatelessWidget {
                 (context) =>
                     MyTaskScreen(projectID: '', tagName: '', projectName: ''),
             '/drive': (context) => WebDriveScreen(),
+            '/company-data': (context) => CompanyDataScreen(),
             '/message-home': (context) => MessengerHomeScreen(),
           },
           onGenerateRoute: (settings) {
